@@ -2,7 +2,7 @@ import numpy as np
 import sympy as sp
 
 class FEM:
-    def __init__(self, nodes, elements, E=1e6, nu=0.3):
+    def __init__(self, nodes, elements, E=1e6, nu=0.3, thickness=1):
         ## Material Properties ##
         self.E= E
         self.nu = nu
@@ -21,6 +21,9 @@ class FEM:
         self.J = None
         self.J_det = None
         self.G = None
+
+        ## thickness of element ##
+        self.thickness = thickness
     
     def D_matrix(self): # plane stress
         """
@@ -120,13 +123,25 @@ class FEM:
         print(f'G: {self.G}')
 
     def B_matrix(self,element):
-        d = self.derivative_matrix()
-        self.G_matrix(element)
-        self.B = np.array([[self.G[0,0]*d[0,0]+self.G[0,1]*d[1,0],0],
-                           [0,self.G[1,0]*d[0,0]+self.G[1,1]*d[1,0]],
-                           [self.G[1,0]*d[0,0]+self.G[1,1]*d[1,0],self.G[0,0]*d[0,0]+self.G[0,1]*d[1,0]]])
-        print(f'B: {self.B}')
+        d = self.derivative_matrix() # get derivative matrix
+        # augment d
+        d_aug = np.array([[d[0,0],0,d[0,1],0,d[0,2],0,d[0,3],0],[0,d[1,0],0,d[1,1],0,d[1,2],0,d[1,3]]])
+        self.G_matrix(element) # calculate G
+
+        d_trans_flat = (self.G @ d).T.flatten()
+
+        self.B = np.array([[1,0],[0,1],[0,0]]) @ self.G @ d_aug # find B without the last row
+        self.B[2,:] = d_trans_flat # 
     
+    def K_local_matrix(self,element):
+        self.B_matrix(element)
+        self.D_matrix()
+        self.determinant_J(element)
+        integrand = self.B.T @ self.D @ self.B * self.J_det * self.thickness
+        
+        print(integrand.shape)
+
+
 
         
     
